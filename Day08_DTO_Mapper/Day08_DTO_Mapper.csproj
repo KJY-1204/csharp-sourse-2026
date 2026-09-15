@@ -9,7 +9,6 @@
 
     <ItemGroup>
       <Folder Include="Data\Mapper\" />
-      <Folder Include="Data\Models\" />
       <Folder Include="Data\Repositories\" />
     </ItemGroup>
 
