@@ -1,4 +1,5 @@
-﻿using Day09_Result.Data.Common;
+﻿using System.Text.Json;
+using Day09_Result.Data.Common;
 using Day09_Result.Data.DataSources;
 using Day09_Result.Data.Mapper;
 using Day09_Result.Data.Models;
@@ -16,13 +17,33 @@ public class PokemonRepository : IPokemonRepository
 
     public async Task<Result<Pokemon>> GetPokemonByNameAsync(string pokemonName)
     {
-        var dataSourceResult = await _apiDataSource.GetPokemonAsync(pokemonName);
-        if (dataSourceResult.IsFailure)
+        if (string.IsNullOrWhiteSpace(pokemonName))
         {
-            return Result<Pokemon>.Failure(dataSourceResult.Error);
+            return Result<Pokemon>.Failure("포켓몬 이름이 유효하지 않음", PokemonErrorType.InvalidInput);
         }
 
-        var pokemon = dataSourceResult.Value!.ToDomain();
-        return Result<Pokemon>.Success(pokemon);
+        try
+        {
+            var dataSourceResult = await _apiDataSource.GetPokemonAsync(pokemonName);
+            if (dataSourceResult.IsFailure)
+            {
+                return Result<Pokemon>.Failure(dataSourceResult.ErrorMessage, dataSourceResult.ErrorType);
+            }
+
+            var pokemon = dataSourceResult.Value!.ToDomain();
+            return Result<Pokemon>.Success(pokemon);
+        }
+        catch (TimeoutException ex)
+        {
+            return Result<Pokemon>.Failure($"요청 시간 초과 : {ex.Message}", PokemonErrorType.Timeout);
+        }
+        catch (JsonException ex)
+        {
+            return Result<Pokemon>.Failure($"JSON 데이터 파싱 실패 : {ex.Message}", PokemonErrorType.SerializationError);
+        }
+        catch (Exception ex)
+        {
+            return Result<Pokemon>.Failure($"예기치 못한 오류 발생 : {ex.Message}", PokemonErrorType.NetworkError);
+        }
     }
 }

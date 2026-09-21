@@ -3,36 +3,50 @@ using Day09_Result.Data.Common;
 using Day09_Result.Data.DataSources;
 using Day09_Result.Data.DTOs;
 using Day09_Result.Data.Repositories;
+using Day09_Result.Test.Data.Mocks;
 using JetBrains.Annotations;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Day09_Result.Test.Data.Repositories;
 
 [TestClass]
-public class PokemonRepositoryResultTests
+public class PokemonRepositoryErrorTests
 {
     [TestMethod]
-    public async Task GetPokemonByNameAsync_NotFound_ReturnsFailureResult()
+    public async Task GetPokemonByNameAsync_WhenTimeoutOccurs_ReturnsTimeoutFailureResult()
     {
-        // Arrange (404 Not Found를 반환하는 가짜 DataSource)
-        var fakeDataSource = new FakeNotFoundDataSource();
-        var repository = new PokemonRepository(fakeDataSource);
+        // [Arrange] 항상 타임아웃을 발생시키는 Mock 주입
+        var timeoutMock = new TimeoutMockPokemonApiDataSource();
+        var repository = new PokemonRepository(timeoutMock);
 
-        // Act
-        var result = await repository.GetPokemonByNameAsync("dittooo");
+        // [Act]
+        var result = await repository.GetPokemonByNameAsync("pikachu");
 
-        // Assert
+        // [Assert]
+        Assert.IsNotNull(result);
         Assert.IsTrue(result.IsFailure);
         Assert.IsFalse(result.IsSuccess);
         Assert.IsNull(result.Value);
-        StringAssert.Contains(result.Error, "404 Not Found");
+        Assert.AreEqual(PokemonErrorType.Timeout, result.ErrorType);
+        StringAssert.Contains(result.ErrorMessage, "요청 시간이 초과되었습니다");
     }
 
-    private class FakeNotFoundDataSource : IPokemonApiDataSource
+    [TestMethod]
+    public async Task GetPokemonByNameAsync_WhenSerializationFails_ReturnsSerializationErrorResult()
     {
-        public Task<Result<PokemonDto>> GetPokemonAsync(string pokemonName)
-        {
-            return Task.FromResult(Result<PokemonDto>.Failure($"포켓몬 '{pokemonName}'을(를) 찾을 수 없습니다. (404 Not Found)"));
-        }
+        // [Arrange] 항상 JSON 파싱 에러를 발생시키는 Mock 주입
+        var serializationMock = new SerializationErrorMockPokemonApiDataSource();
+        var repository = new PokemonRepository(serializationMock);
+
+        // [Act]
+        var result = await repository.GetPokemonByNameAsync("ditto");
+
+        // [Assert]
+        Assert.IsNotNull(result);
+        Assert.IsTrue(result.IsFailure);
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsNull(result.Value);
+        Assert.AreEqual(PokemonErrorType.SerializationError, result.ErrorType);
+        StringAssert.Contains(result.ErrorMessage, "JSON 데이터 파싱에 실패했습니다");
     }
 }
